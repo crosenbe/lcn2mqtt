@@ -112,6 +112,69 @@ class SwitchComponent(BaseComponentModel):
             )
 
 
+class SendKeysTable(BaseModel):
+    """Sendkeys sub model of ButtonComponent."""
+
+    command: str
+    keys: list[bool]
+
+    @field_validator("keys")
+    @classmethod
+    def validate_keys(cls, value: list[bool]) -> list[bool]:
+        """Validate if keys contain 8 values."""
+        if len(value) != 8:
+            raise ValueError('keys must contain exactly 8 values')
+        return value
+
+    @field_validator("command", mode="before")
+    @classmethod
+    def parse_command(cls, value: str) -> str:
+        """Change command enum from value to key."""
+        try:
+            lcn_defs.SendKeyCommand[value.upper()]
+            return value
+        except KeyError:
+            raise ValueError(f'command {value} is invalid') from None
+
+
+class ButtonComponent(BaseComponentModel):
+    """Home Assistant button component."""
+
+    target: Literal["sendkeys"] = Field(default="sendkeys", exclude=True)
+    dict_key: str = Field(default="", exclude=True)
+
+    #commands: list[lcn_defs.SendKeyCommand] = Field(default_factory=lambda: [lcn_defs.SendKeyCommand.DONTSEND] * 4, min_length=4, max_length=4)
+    #keys: list[bool] = Field(default_factory=lambda: [False] * 8, min_length=8, max_length=8)
+
+    table_a: SendKeysTable | None = None
+    table_b: SendKeysTable | None = None
+    table_c: SendKeysTable | None = None
+    table_d: SendKeysTable | None = None
+
+    command_topic: str | None = None
+
+    platform: Literal["button"] = Field(default="button", alias="p")  # type: ignore[assignment]
+
+    @field_validator("target", mode="before")
+    @classmethod
+    def validate_target(cls, value: Any) -> Any:
+        """Validate that target is sendkeys."""
+        if isinstance(value, str):
+            if value not in ['sendkeys']:
+                raise ValueError(f"Invalid target '{value}'.")
+        return value
+
+    def update_dict_key(self, dict_key:str) -> None:
+        """Store the dict key as unique identifier."""
+        self.dict_key = dict_key
+
+    def update_topics(self) -> None:
+        """Update default topics."""
+        self.command_topic = set_if_none(
+            self.command_topic, f"{self.prefix}/sendkeys/{self.dict_key}/set"
+        )
+
+
 class LightComponent(SwitchComponent):
     """Home Assistant light component."""
 

@@ -268,7 +268,11 @@ def load_config(
         _LOG.info("Using local config path: %s", local_config_path)
 
     yaml_file = os.path.join(config_path, "configuration.yaml")
-    config = AppConfig(yaml_file=yaml_file)
+    from pydantic import ValidationError
+    try:
+        config = AppConfig(yaml_file=yaml_file)
+    except ValidationError as e:
+        print('DEBUG ===================== ', e)        
     finalize_config(config)
     return config
 

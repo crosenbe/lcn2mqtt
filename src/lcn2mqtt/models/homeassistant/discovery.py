@@ -1,18 +1,20 @@
 """Home Assistant MQTT Discovery configuration for LCN modules."""
 
 import fnmatch
-from typing import Any
+from typing import Any, Self
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    model_validator,
 )
 from pypck import lcn_defs
 from pypck.lcn_addr import LcnAddr
 
 from .components import (
     BinarySensorComponent,
+    ButtonComponent,
     ClimateComponent,
     CoverComponent,
     LightComponent,
@@ -39,6 +41,7 @@ ALL_COMPONENTS = BINSENSORS + OUTPUTS + RELAYS + MOTORS + LEDS + VARS
 
 PLATFORMS = (
     "binary_sensors",
+    "buttons",
     "switches",
     "lights",
     "sensors",
@@ -60,6 +63,7 @@ class HomeAssistantModuleDiscoveryConfig(BaseModel):
     exclude: set[str] = Field(default_factory=set)
 
     binary_sensors: dict[str, BinarySensorComponent] = Field(default_factory=dict)
+    buttons: dict[str, ButtonComponent] = Field(default_factory=dict)
     switches: dict[str, SwitchComponent] = Field(default_factory=dict)
     lights: dict[str, LightComponent] = Field(default_factory=dict)
     sensors: dict[str, SensorComponent] = Field(default_factory=dict)
@@ -68,11 +72,20 @@ class HomeAssistantModuleDiscoveryConfig(BaseModel):
     covers: dict[str, CoverComponent] = Field(default_factory=dict)
     climates: dict[str, ClimateComponent] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def update_button_topics(self) -> Self:
+        """Write keys of buttons into the butto key attribute."""
+        for key, button in self.buttons.items():
+            button.update_dict_key(key)
+
+        return self
+
     @property
     def components(self) -> dict[str, Any]:
         """Return a dict of all components by platform."""
         return {
             **self.binary_sensors,
+            **self.buttons,
             **self.switches,
             **self.lights,
             **self.sensors,
