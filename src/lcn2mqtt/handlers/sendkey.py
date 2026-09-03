@@ -5,12 +5,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from pypck import inputs, lcn_defs
+from pypck import lcn_defs
 
-from lcn2mqtt.handlers.dispatcher import input_handler, mqtt_handler
-from lcn2mqtt.helpers import MqttMessage
+from lcn2mqtt.handlers.dispatcher import mqtt_handler
 
-from ..models.device import Device, LedState
+from ..models.device import Device
 
 _LOG = logging.getLogger(__name__)
 
@@ -40,19 +39,20 @@ async def handle_command(
         _LOG.warning("Unknown sendkeys button %r", button_identifier)
         return
 
-    # fetch config
-    keys = [
-        button_config.table_a.keys if button_config.table_a else [False] * 8,
-        button_config.table_b.keys if button_config.table_b else [False] * 8,
-        button_config.table_c.keys if button_config.table_c else [False] * 8,
-        button_config.table_d.keys if button_config.table_d else [False] * 8,
-    ]
-    commands = [
-        button_config.table_a.command if button_config.table_a else lcn_defs.SendKeyCommand.DONTSEND,
-        button_config.table_b.command if button_config.table_b else lcn_defs.SendKeyCommand.DONTSEND,
-        button_config.table_c.command if button_config.table_c else lcn_defs.SendKeyCommand.DONTSEND,
-        button_config.table_d.command if button_config.table_d else lcn_defs.SendKeyCommand.DONTSEND,
-    ]
-
-    # Inactive at the moment
-    #await device_connection.send_keys(keys=keys, cmd=commands)
+    for idx, table in enumerate(
+        [
+            button_config.table_a,
+            button_config.table_b,
+            button_config.table_c,
+            button_config.table_d,
+        ]
+    ):
+        if table is not None:
+            command = lcn_defs.SendKeyCommand[table.command.upper()]
+            keys: list[list[bool]] = []
+            for _ in range(idx):
+                keys.append([False] * 8)
+            keys.append(table.keys)
+            for _ in range(3 - idx):
+                keys.append([False] * 8)
+            await device_connection.send_keys(keys=keys, cmd=command)
